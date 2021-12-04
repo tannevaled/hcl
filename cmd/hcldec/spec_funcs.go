@@ -8,7 +8,6 @@ import (
 var specFuncs = map[string]function.Function{
 	"coalesce":        stdlib.CoalesceFunc,
 	"hasindex":        stdlib.HasIndexFunc,
-	"int":             stdlib.IntFunc,
 	"length":          stdlib.LengthFunc,
 	// https://github.com/zclconf/go-cty/blob/main/cty/function/stdlib/json.go
 	"jsondecode":      stdlib.JSONDecodeFunc,
@@ -16,7 +15,7 @@ var specFuncs = map[string]function.Function{
 	// https://github.com/zclconf/go-cty/blob/main/cty/function/stdlib/number.go
 	"abs":             stdlib.AbsoluteFunc,
 	"add":             stdlib.AddFunc,
-	"substract":       stdlib.SubstractFunc,
+	"subtract":        stdlib.SubtractFunc,
 	"multiply":        stdlib.MultiplyFunc,
 	"divide":          stdlib.DivideFunc,
 	"modulo":          stdlib.ModuloFunc,
@@ -41,11 +40,11 @@ var specFuncs = map[string]function.Function{
 	"concat":          stdlib.ConcatFunc,
 	"range":           stdlib.RangeFunc,
 	// https://github.com/zclconf/go-cty/blob/main/cty/function/stdlib/set.go
- 	"sethaselement":   stdlib.SetHasElement,
- 	"setunion":        stdlib.SetUnion,
- 	"setintersection": stdlib.SetIntersection,
-	"setsubtract":     stdlib.SetSubtract,
-	"setsymmetricdifference": stdlib.SetSymmetricDifference,
+ 	//"sethaselement":   stdlib.SetHasElement,
+ 	//"setunion":        stdlib.SetUnion,
+ 	//"setintersection": stdlib.SetIntersection,
+	//"setsubtract":     stdlib.SetSubtract,
+	//"setsymmetricdifference": stdlib.SetSymmetricDifference,
 	// https://github.com/zclconf/go-cty/blob/main/cty/function/stdlib/string.go
 	"upper":           stdlib.UpperFunc,
 	"lower":           stdlib.LowerFunc,
