@@ -422,6 +422,17 @@ function "min" {
   variadic_param = nums
   result         = min(nums...)
 }
+
+function "join" {
+  params = [ separator ]
+  variadic_param = lists
+  result = join(separator, lists...)
+}
+
+function "sort" {
+  params = [ list ]
+  result = sort(list)
+}
 ```
 
 Custom functions defined in the spec cannot be called from the spec itself.
@@ -447,6 +458,8 @@ be used.
 * `strlen(string)` returns the number of characters in the given string.
 * `substr(string, offset, length)` returns the requested substring of the given string.
 * `upper(string)` returns the given string with all lowercase letters converted to uppercase.
+* `join(separator, lists...)` concatenates together the string elements of one or more lists with a given separator.
+* `sort(list)` re-orders the elements of a given list of strings so that they are in ascending lexicographical order.
 
 Note that these expressions are valid in the context of the _spec_ file, not
 the _input_. Functions can be exposed into the input file using
