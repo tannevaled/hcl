@@ -19,7 +19,7 @@ var specFuncs = map[string]function.Function{
 	"multiply":        stdlib.MultiplyFunc,
 	"divide":          stdlib.DivideFunc,
 	"modulo":          stdlib.ModuloFunc,
-	"greaterthan":     stdlib.FreaterThanFunc,
+	"greaterthan":     stdlib.GreaterThanFunc,
 	"greaterthanorequalto": stdlib.GreaterThanOrEqualToFunc,
 	"lessthan":        stdlib.LessThanFunc,
 	"lessthanorequalto": stdlib.LessThanOrEqualToFunc,
