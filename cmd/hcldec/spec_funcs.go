@@ -44,7 +44,7 @@ var specFuncs = map[string]function.Function{
  	"sethaselement":   stdlib.SetHasElement,
  	"setunion":        stdlib.SetUnion,
  	"setintersection": stdlib.SetIntersection,
-	"setsubtrac":      stdlib.SetSubtrac,
+	"setsubtract":     stdlib.SetSubtract,
 	"setsymmetricdifference": stdlib.SetSymmetricDifference,
 	// https://github.com/zclconf/go-cty/blob/main/cty/function/stdlib/string.go
 	"upper":           stdlib.UpperFunc,
