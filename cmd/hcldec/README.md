@@ -25,6 +25,12 @@ with `go get` in the usual way:
 $ go get -u github.com/hashicorp/hcl/v2/cmd/hcldec
 ```
 
+or for go >= 1.17 (https://go.dev/doc/go-get-install-deprecation)
+
+```
+$ VERSION='v2.11.1' go install github.com/hashicorp/hcl/v2/cmd/hcldec@${VERSION}
+```
+
 This will install `hcldec` in `$GOPATH/bin`, which usually places it into
 your shell `PATH` so you can then run it as `hcldec`.
 
