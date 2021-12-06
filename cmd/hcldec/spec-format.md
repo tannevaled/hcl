@@ -443,14 +443,33 @@ Certain expressions within a specification may use the following functions.
 The documentation for each spec type above specifies where functions may
 be used.
 
-* `coalesce(vals...)` returns the first non-null value given.
 * `concat(lists...)` concatenates together all of the given lists to produce a new list.
-* `hasindex(val, idx)` returns true if the expression `val[idx]` could succeed.
-* `length(collection)` returns the number of elements in the given collection (list, set, map, object, or tuple).
 
+From https://github.com/zclconf/go-cty/cty/function/stdlib/collection.go
+* `hasindex(val, idx)` returns true if the expression `val[idx]` could succeed.
+* `index()`
+* `length(collection)` returns the number of elements in the given collection (list, set, map, object, or tuple).
+* `element()`
+* `coalesce(vals...)` returns the first non-null value given.
+* `compact()`
+* `contains()`
+* `distinct()`
+* `chunklist()`
+* `flatten()`
+* `keys()`
+* `lookup()`
+* `merge()`
+* `reverselist()` takes a sequence and produces a new sequence of the same length with all of the same elements as the given sequence but in reverse order.
+* `setproduct()` calculates the Cartesian product of two or more sets or sequences. If the arguments are all lists then the result is a list of tuples, preserving the ordering of all of the input lists. Otherwise the result is a set of tuples.
+* `slide()` extracts some consecutive elements from within a list.
+* `values()` returns a list of the map values, in the order of the sorted keys.
+* `zipmap()` returns a map from a list of keys and a corresponding list of values.
+
+Fom https://github.com/zclconf/go-cty/cty/function/stdlib/json.go
 * `jsondecode(str)` interprets the given string as JSON and returns the resulting data structure.
 * `jsonencode(val)` returns a JSON-serialized version of the given value.
 
+From https://github.com/zclconf/go-cty/cty/function/stdlib/number.go
 * `abs(number)` returns the absolute (positive) value of the given number.
 * `add()`
 * `subtract()`
@@ -472,12 +491,15 @@ be used.
 * `signum()`
 * `parseint()`
 
+From https://github.com/zclconf/go-cty/cty/function/stdlib/regexp.go
 * `regex()`
 * `regexall()`
 
+From  https://github.com/zclconf/go-cty/cty/function/stdlib/sequence.go
 * `concat()`
 * `range()`
 
+From  https://github.com/zclconf/go-cty/cty/function/stdlib/string.go
 * `upper(string)` returns the given string with all lowercase letters converted to uppercase.
 * `lower(string)` returns the given string with all uppercase letters converted to lowercase.
 * `reverse(string)` returns the given string with all of the characters in reverse order.
@@ -494,6 +516,7 @@ be used.
 * `trimprefix()`
 * `trimsuffix()`
 
+From https://github.com/zclconf/go-cty/cty/function/stdlib/string_replace.go
 * `replace()`
 * `regexreplace()`
 
