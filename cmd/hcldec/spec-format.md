@@ -443,23 +443,59 @@ Certain expressions within a specification may use the following functions.
 The documentation for each spec type above specifies where functions may
 be used.
 
-* `abs(number)` returns the absolute (positive) value of the given number.
 * `coalesce(vals...)` returns the first non-null value given.
 * `concat(lists...)` concatenates together all of the given lists to produce a new list.
 * `hasindex(val, idx)` returns true if the expression `val[idx]` could succeed.
-* `int(number)` returns the integer portion of the given number, rounding towards zero.
+* `length(collection)` returns the number of elements in the given collection (list, set, map, object, or tuple).
+
 * `jsondecode(str)` interprets the given string as JSON and returns the resulting data structure.
 * `jsonencode(val)` returns a JSON-serialized version of the given value.
-* `length(collection)` returns the number of elements in the given collection (list, set, map, object, or tuple).
-* `lower(string)` returns the given string with all uppercase letters converted to lowercase.
-* `max(numbers...)` returns the greatest of the given numbers.
+
+* `abs(number)` returns the absolute (positive) value of the given number.
+* `add()`
+* `subtract()`
+* `multiply()`
+* `divide()`
+* `modulo()`
+* `greaterthan()`
+* `greaterthenorequalto()`
+* `lessthan()`
+* `lessthanorequalto()`
+* `negate()`
 * `min(numbers...)` returns the smallest of the given numbers.
+* `max(numbers...)` returns the greatest of the given numbers.
+* `int(number)` returns the integer portion of the given number, rounding towards zero.
+* `ceil()`
+* `floor()`
+* `log()`
+* `pow()`
+* `signum()`
+* `parseint()`
+
+* `regex()`
+* `regexall()`
+
+* `concat()`
+* `range()`
+
+* `upper(string)` returns the given string with all lowercase letters converted to uppercase.
+* `lower(string)` returns the given string with all uppercase letters converted to lowercase.
 * `reverse(string)` returns the given string with all of the characters in reverse order.
 * `strlen(string)` returns the number of characters in the given string.
 * `substr(string, offset, length)` returns the requested substring of the given string.
-* `upper(string)` returns the given string with all lowercase letters converted to uppercase.
 * `join(separator, lists...)` concatenates together the string elements of one or more lists with a given separator.
 * `sort(list)` re-orders the elements of a given list of strings so that they are in ascending lexicographical order.
+* `split()`
+* `chomp()`
+* `indent()`
+* `title()`
+* `trimspace()`
+* `trim()`
+* `trimprefix()`
+* `trimsuffix()`
+
+* `replace()`
+* `regexreplace()`
 
 Note that these expressions are valid in the context of the _spec_ file, not
 the _input_. Functions can be exposed into the input file using
