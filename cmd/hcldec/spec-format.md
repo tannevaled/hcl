@@ -443,6 +443,24 @@ Certain expressions within a specification may use the following functions.
 The documentation for each spec type above specifies where functions may
 be used.
 
+From https://github.com/zclconf/go-cty/cty/function/stdlib/bool.go
+* `not(bool)` returns the logical complement of the given boolean value.
+* `and(bool, bool)` returns true if and only if both of the given boolean values are true.
+* `or(bool, bool)` returns true if either of the given boolean values are true.
+
+From https://github.com/zclconf/go-cty/cty/function/stdlib/bytes.go
+* `byteslen()` returns the length of the buffer encapsulated in a Bytes value.
+* `bytesslice()` returns a slice of the given Bytes value.
+
+From https://github.com/zclconf/go-cty/cty/function/stdlib/format.go
+* `format()` 
+* `formatlist()`
+
+From https://github.com/zclconf/go-cty/cty/function/stdlib/general.go
+* `equal()` Equal determines whether the two given values are equal, returning a bool value.
+* `notequal()` NotEqual is the opposite of Equal.
+* `coalescence()` returns the first of the given arguments that is not null. If all arguments are null, an error is produced.
+
 * `concat(lists...)` concatenates together all of the given lists to produce a new list.
 
 From https://github.com/zclconf/go-cty/cty/function/stdlib/collection.go
@@ -465,7 +483,14 @@ From https://github.com/zclconf/go-cty/cty/function/stdlib/collection.go
 * `values()` returns a list of the map values, in the order of the sorted keys.
 * `zipmap()` returns a map from a list of keys and a corresponding list of values.
 
-Fom https://github.com/zclconf/go-cty/cty/function/stdlib/json.go
+From https://github.com/zclconf/go-cty/cty/function/stdlib/csv.go
+* `csvdecode()`
+
+From https://github.com/zclconf/go-cty/cty/function/stdlib/datetime.go
+* `formatdate()`
+* `timeadd()`
+
+From https://github.com/zclconf/go-cty/cty/function/stdlib/json.go
 * `jsondecode(str)` interprets the given string as JSON and returns the resulting data structure.
 * `jsonencode(val)` returns a JSON-serialized version of the given value.
 
