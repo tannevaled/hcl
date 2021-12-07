@@ -6,13 +6,56 @@ import (
 )
 
 var specFuncs = map[string]function.Function{
+        // https://github.com/zclconf/go-cty/cty/function/stdlib/bool.go
+	"not":             stdlib.NotFunc,
+        "and":             stdlib.AndFunc,
+	"or":              stdlib.OrFunc,
+
+	// https://github.com/zclconf/go-cty/cty/function/stdlib/bytes.go
+	"byteslen":        stdlib.BytesLenFunc,
+	"bytesslice":      stdlib.BytesSliceFunc,
+
+        // https://github.com/zclconf/go-cty/cty/function/stdlib/format.go
+	"format":          stdlib.FormatFunc,
+	"formatlist":      stdlib.FormatListFunc,
+
+	// https://github.com/zclconf/go-cty/cty/function/stdlib/general.go
+	"equal":           stdlib.EqualFunc,
+	"notequal":        stdlib.NotEqualFunc,
 	"coalesce":        stdlib.CoalesceFunc,
+
+	// https://github.com/zclconf/go-cty/cty/function/stdlib/collection.go
 	"hasindex":        stdlib.HasIndexFunc,
+	"index":           stdlib.IndexFunc,
 	"length":          stdlib.LengthFunc,
-	// https://github.com/zclconf/go-cty/blob/main/cty/function/stdlib/json.go
+	"element":         stdlib.ElementFunc,
+	"coalescelist":    stdlib.CoalesceListFunc,
+	"compact":         stdlib.CompactFunc,
+	"contains":        stdlib.ContainsFunc,
+	"distinct":        stdlib.DistinctFunc,
+	"chunklist":       stdlib.ChunklistFunc,
+	"flatten":         stdlib.FlattenFunc,
+	"keys":            stdlib.KeysFunc,
+	"lookup":          stdlib.LookupFunc,
+	"merge":           stdlib.MergeFunc,
+	"reverselist":     stdlib.ReverseListFunc,
+	"setproduct":      stdlib.SetProductFunc,
+	"slice":           stdlib.SliceFunc,
+	"values":          stdlib.ValuesFunc,
+	"zipmap":          stdlib.ZipmapFunc,
+
+	// https://github.com/zclconf/go-cty/cty/function/stdlib/csv.go
+	"csvdecode":       stdlib.CSVDecodeFunc,
+
+	// https://github.com/zclconf/go-cty/cty/function/stdlib/datetime.go
+	"formatdate":      stdlib.FormatDateFunc,
+	"timeadd":         stdlib.TimeAddFunc,
+
+	// https://github.com/zclconf/go-cty/cty/function/stdlib/json.go
 	"jsondecode":      stdlib.JSONDecodeFunc,
-	"jsonencode":      stdlib.JSONEncodeFunc,	
-	// https://github.com/zclconf/go-cty/blob/main/cty/function/stdlib/number.go
+	"jsonencode":      stdlib.JSONEncodeFunc,
+
+	// https://github.com/zclconf/go-cty/cty/function/stdlib/number.go
 	"abs":             stdlib.AbsoluteFunc,
 	"add":             stdlib.AddFunc,
 	"subtract":        stdlib.SubtractFunc,
