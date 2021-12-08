@@ -38,10 +38,14 @@ your shell `PATH` so you can then run it as `hcldec`.
 
 ```
 usage: hcldec --spec=<spec-file> [options] [hcl-file ...]
+      --diags string        format any returned diagnostics in the given format; currently only "json" is accepted
+      --keep-nulls          retain object properties that have null as their value (they are removed by default)
   -o, --out string          write to the given file, instead of stdout
   -s, --spec string         path to spec file (required)
+      --var-refs            rather than decoding input, produce a JSON description of the variables referenced by it
   -V, --vars json-or-file   provide variables to the given configuration file(s)
   -v, --version             show the version number and immediately exit
+      --with-type           include an additional object level at the top describing the HCL-oriented type of the result value
 ```
 
 The most important step in using `hcldec` is to write the specification that
