@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package main
 
 import (
@@ -106,6 +109,7 @@ func processFiles() error {
 
 func processFile(fn string, in *os.File) error {
 	var err error
+	var hasLocalChanges bool = false
 	if in == nil {
 		in, err = os.Open(fn)
 		if err != nil {
@@ -131,10 +135,15 @@ func processFile(fn string, in *os.File) error {
 
 	if !bytes.Equal(inSrc, outSrc) {
 		changed = append(changed, fn)
+		hasLocalChanges = true
 	}
 
 	if *overwrite {
-		return ioutil.WriteFile(fn, outSrc, 0644)
+		if hasLocalChanges {
+			return ioutil.WriteFile(fn, outSrc, 0644)
+		} else {
+			return nil
+		}
 	}
 
 	_, err = os.Stdout.Write(outSrc)

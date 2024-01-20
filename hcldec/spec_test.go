@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package hcldec
 
 import (
@@ -6,7 +9,10 @@ import (
 	"testing"
 
 	"github.com/apparentlymart/go-dump/dump"
+	"github.com/google/go-cmp/cmp"
+	"github.com/zclconf/go-cty-debug/ctydebug"
 	"github.com/zclconf/go-cty/cty"
+	"github.com/zclconf/go-cty/cty/function"
 
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
@@ -205,5 +211,108 @@ foo = "invalid"
 				t.Fatalf("expected range %s, got range %s", expectRange[name], diags[0].Subject)
 			}
 		})
+	}
+}
+
+func TestRefineValueSpec(t *testing.T) {
+	config := `
+foo = "hello"
+bar = unk
+dyn = dyn
+marked = mark(unk)
+`
+
+	f, diags := hclsyntax.ParseConfig([]byte(config), "", hcl.InitialPos)
+	if diags.HasErrors() {
+		t.Fatal(diags.Error())
+	}
+
+	attrSpec := func(name string) Spec {
+		return &RefineValueSpec{
+			// RefineValueSpec should typically have a ValidateSpec wrapped
+			// inside it to catch any values that are outside of the required
+			// range and return a helpful error message about it. In this
+			// case our refinement is .NotNull so the validation function
+			// must reject null values.
+			Wrapped: &ValidateSpec{
+				Wrapped: &AttrSpec{
+					Name:     name,
+					Required: true,
+					Type:     cty.String,
+				},
+				Func: func(value cty.Value) hcl.Diagnostics {
+					var diags hcl.Diagnostics
+					if value.IsNull() {
+						diags = diags.Append(&hcl.Diagnostic{
+							Severity: hcl.DiagError,
+							Summary:  "Cannot be null",
+							Detail:   "Argument is required.",
+						})
+					}
+					return diags
+				},
+			},
+			Refine: func(rb *cty.RefinementBuilder) *cty.RefinementBuilder {
+				return rb.NotNull()
+			},
+		}
+	}
+	spec := &ObjectSpec{
+		"foo":    attrSpec("foo"),
+		"bar":    attrSpec("bar"),
+		"dyn":    attrSpec("dyn"),
+		"marked": attrSpec("marked"),
+	}
+
+	got, diags := Decode(f.Body, spec, &hcl.EvalContext{
+		Variables: map[string]cty.Value{
+			"unk": cty.UnknownVal(cty.String),
+			"dyn": cty.DynamicVal,
+		},
+		Functions: map[string]function.Function{
+			"mark": function.New(&function.Spec{
+				Params: []function.Parameter{
+					{
+						Name:             "v",
+						Type:             cty.DynamicPseudoType,
+						AllowMarked:      true,
+						AllowNull:        true,
+						AllowUnknown:     true,
+						AllowDynamicType: true,
+					},
+				},
+				Type: func(args []cty.Value) (cty.Type, error) {
+					return args[0].Type(), nil
+				},
+				Impl: func(args []cty.Value, retType cty.Type) (cty.Value, error) {
+					return args[0].Mark("boop"), nil
+				},
+			}),
+		},
+	})
+	if diags.HasErrors() {
+		t.Fatal(diags.Error())
+	}
+
+	want := cty.ObjectVal(map[string]cty.Value{
+		// This argument had a known value, so it's unchanged but the
+		// RefineValueSpec still checks that it isn't null to catch
+		// bugs in the application's validation function.
+		"foo": cty.StringVal("hello"),
+
+		// The final value of bar is unknown but refined as non-null.
+		"bar": cty.UnknownVal(cty.String).RefineNotNull(),
+
+		// The final value of dyn is unknown but refined as non-null.
+		// Correct behavior here requires that we convert the DynamicVal
+		// to an unknown string first and then refine it.
+		"dyn": cty.UnknownVal(cty.String).RefineNotNull(),
+
+		// This argument had a mark applied, which should be preserved
+		// despite the refinement.
+		"marked": cty.UnknownVal(cty.String).RefineNotNull().Mark("boop"),
+	})
+	if diff := cmp.Diff(want, got, ctydebug.CmpOptions); diff != "" {
+		t.Errorf("wrong result\n%s", diff)
 	}
 }

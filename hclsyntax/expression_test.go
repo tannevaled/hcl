@@ -1,8 +1,13 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package hclsyntax
 
 import (
+	"fmt"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/hcl/v2"
 	"github.com/zclconf/go-cty/cty"
 	"github.com/zclconf/go-cty/cty/function"
@@ -55,7 +60,7 @@ func TestExpressionParseAndValue(t *testing.T) {
 					"unk": cty.UnknownVal(cty.Number),
 				},
 			},
-			cty.UnknownVal(cty.Number),
+			cty.UnknownVal(cty.Number).RefineNotNull(),
 			0,
 		},
 		{
@@ -65,7 +70,7 @@ func TestExpressionParseAndValue(t *testing.T) {
 					"unk": cty.DynamicVal,
 				},
 			},
-			cty.UnknownVal(cty.Number),
+			cty.UnknownVal(cty.Number).RefineNotNull(),
 			0,
 		},
 		{
@@ -75,7 +80,7 @@ func TestExpressionParseAndValue(t *testing.T) {
 					"unk": cty.DynamicVal,
 				},
 			},
-			cty.UnknownVal(cty.Number),
+			cty.UnknownVal(cty.Number).RefineNotNull(),
 			0,
 		},
 		{
@@ -336,6 +341,56 @@ upper(
 			},
 			cty.DynamicVal,
 			0,
+		},
+		{
+			`foo::upper("foo")`,
+			&hcl.EvalContext{
+				Functions: map[string]function.Function{
+					"foo::upper": stdlib.UpperFunc,
+				},
+			},
+			cty.StringVal("FOO"),
+			0,
+		},
+		{
+			`foo :: upper("foo")`, // spaces are non-idomatic, but valid
+			&hcl.EvalContext{
+				Functions: map[string]function.Function{
+					"foo::upper": stdlib.UpperFunc,
+				},
+			},
+			cty.StringVal("FOO"),
+			0,
+		},
+		{
+			`::upper("foo")`, // :: is still not a valid identifier
+			&hcl.EvalContext{
+				Functions: map[string]function.Function{
+					"::upper": stdlib.UpperFunc,
+				},
+			},
+			cty.DynamicVal,
+			1,
+		},
+		{
+			`double::::upper("foo")`, // missing name after ::
+			&hcl.EvalContext{
+				Functions: map[string]function.Function{
+					"double::::upper": stdlib.UpperFunc,
+				},
+			},
+			cty.NilVal,
+			1,
+		},
+		{
+			`missing::("foo")`, // missing name after ::
+			&hcl.EvalContext{
+				Functions: map[string]function.Function{
+					"missing::": stdlib.UpperFunc,
+				},
+			},
+			cty.NilVal,
+			1,
 		},
 		{
 			`misbehave()`,
@@ -1142,7 +1197,21 @@ upper(
 					"unkstr": cty.UnknownVal(cty.String),
 				},
 			},
-			cty.UnknownVal(cty.Tuple([]cty.Type{cty.String})),
+			cty.DynamicVal,
+			0,
+		},
+		{
+			`unkstr[*]`,
+			&hcl.EvalContext{
+				Variables: map[string]cty.Value{
+					"unkstr": cty.UnknownVal(cty.String).RefineNotNull(),
+				},
+			},
+			// If the unknown string is definitely not null then we already
+			// know that the result will be a single-element tuple.
+			cty.TupleVal([]cty.Value{
+				cty.UnknownVal(cty.String).RefineNotNull(),
+			}),
 			0,
 		},
 		{
@@ -1152,7 +1221,7 @@ upper(
 					"unkstr": cty.UnknownVal(cty.String),
 				},
 			},
-			cty.UnknownVal(cty.Tuple([]cty.Type{cty.DynamicPseudoType})),
+			cty.DynamicVal,
 			1, // a string has no attribute "name"
 		},
 		{
@@ -1174,7 +1243,33 @@ upper(
 					})),
 				},
 			},
-			cty.UnknownVal(cty.Tuple([]cty.Type{cty.String})),
+			cty.DynamicVal,
+			0,
+		},
+		{
+			`unkobj.*.name`,
+			&hcl.EvalContext{
+				Variables: map[string]cty.Value{
+					"unkobj": cty.UnknownVal(cty.Object(map[string]cty.Type{
+						"name": cty.String,
+					})).RefineNotNull(),
+				},
+			},
+			cty.TupleVal([]cty.Value{
+				cty.UnknownVal(cty.String),
+			}),
+			0,
+		},
+		{
+			`unkobj.*.names`,
+			&hcl.EvalContext{
+				Variables: map[string]cty.Value{
+					"unkobj": cty.UnknownVal(cty.Object(map[string]cty.Type{
+						"names": cty.List(cty.String),
+					})),
+				},
+			},
+			cty.DynamicVal,
 			0,
 		},
 		{
@@ -1186,7 +1281,24 @@ upper(
 					}))),
 				},
 			},
-			cty.UnknownVal(cty.List(cty.String)),
+			cty.UnknownVal(cty.List(cty.String)).RefineNotNull(),
+			0,
+		},
+		{
+			`unklistobj.*.name`,
+			&hcl.EvalContext{
+				Variables: map[string]cty.Value{
+					"unklistobj": cty.UnknownVal(cty.List(cty.Object(map[string]cty.Type{
+						"name": cty.String,
+					}))).Refine().
+						CollectionLengthUpperBound(5).
+						NewValue(),
+				},
+			},
+			cty.UnknownVal(cty.List(cty.String)).Refine().
+				NotNull().
+				CollectionLengthUpperBound(5).
+				NewValue(),
 			0,
 		},
 		{
@@ -1205,7 +1317,7 @@ upper(
 					),
 				},
 			},
-			cty.UnknownVal(cty.Tuple([]cty.Type{cty.String, cty.Bool})),
+			cty.UnknownVal(cty.Tuple([]cty.Type{cty.String, cty.Bool})).RefineNotNull(),
 			0,
 		},
 		{
@@ -1333,6 +1445,26 @@ upper(
 				cty.True,
 				cty.False,
 			}).Mark("sensitive"),
+			0,
+		},
+		{ // splat with sensitive collection that's unknown
+			`maps.*.enabled`,
+			&hcl.EvalContext{
+				Variables: map[string]cty.Value{
+					"maps": cty.UnknownVal(cty.List(cty.Map(cty.Bool))).Mark("sensitive"),
+				},
+			},
+			cty.UnknownVal(cty.List(cty.Bool)).RefineNotNull().Mark("sensitive"),
+			0,
+		},
+		{ // splat with sensitive collection that's unknown and not null
+			`maps.*.enabled`,
+			&hcl.EvalContext{
+				Variables: map[string]cty.Value{
+					"maps": cty.UnknownVal(cty.List(cty.Map(cty.Bool))).RefineNotNull().Mark("sensitive"),
+				},
+			},
+			cty.UnknownVal(cty.List(cty.Bool)).RefineNotNull().Mark("sensitive"),
 			0,
 		},
 		{ // splat with collection with sensitive elements
@@ -1823,6 +1955,207 @@ EOT
 			cty.DynamicVal,
 			0,
 		},
+		{
+			`unknown ? 1 : 0`,
+			&hcl.EvalContext{
+				Variables: map[string]cty.Value{
+					"unknown": cty.UnknownVal(cty.Bool),
+				},
+			},
+			cty.UnknownVal(cty.Number).Refine().
+				NotNull().
+				NumberRangeLowerBound(cty.Zero, true).
+				NumberRangeUpperBound(cty.NumberIntVal(1), true).
+				NewValue(),
+			0,
+		},
+		{
+			`unknown ? 0 : 1`,
+			&hcl.EvalContext{
+				Variables: map[string]cty.Value{
+					"unknown": cty.UnknownVal(cty.Bool),
+				},
+			},
+			cty.UnknownVal(cty.Number).Refine().
+				NotNull().
+				NumberRangeLowerBound(cty.Zero, true).
+				NumberRangeUpperBound(cty.NumberIntVal(1), true).
+				NewValue(),
+			0,
+		},
+		{
+			`unknown ? i : j`,
+			&hcl.EvalContext{
+				Variables: map[string]cty.Value{
+					"unknown": cty.UnknownVal(cty.Bool),
+					"i":       cty.NullVal(cty.Number),
+					"j":       cty.NullVal(cty.Number),
+				},
+			},
+			cty.NullVal(cty.Number),
+			0,
+		},
+		{
+			`unknown ? im : jm`,
+			&hcl.EvalContext{
+				Variables: map[string]cty.Value{
+					"unknown": cty.UnknownVal(cty.Bool),
+					"im":      cty.NullVal(cty.Number).Mark("a"),
+					"jm":      cty.NullVal(cty.Number).Mark("b"),
+				},
+			},
+			cty.NullVal(cty.Number).Mark("a").Mark("b"),
+			0,
+		},
+		{
+			`unknown ? im : jm`,
+			&hcl.EvalContext{
+				Variables: map[string]cty.Value{
+					"unknown": cty.UnknownVal(cty.Bool).Mark("a"),
+					"im":      cty.UnknownVal(cty.Number),
+					"jm":      cty.UnknownVal(cty.Number).Mark("b"),
+				},
+			},
+			// the empty refinement may eventually be removed, but does nothing here
+			cty.UnknownVal(cty.Number).Refine().NewValue().Mark("a").Mark("b"),
+			0,
+		},
+		{
+			`unknown ? ix : jx`,
+			&hcl.EvalContext{
+				Variables: map[string]cty.Value{
+					"unknown": cty.UnknownVal(cty.Bool),
+					"ix":      cty.UnknownVal(cty.Number),
+					"jx":      cty.UnknownVal(cty.Number),
+				},
+			},
+			// the empty refinement may eventually be removed, but does nothing here
+			cty.UnknownVal(cty.Number).Refine().NewValue(),
+			0,
+		},
+		{
+			`unknown ? ir : jr`,
+			&hcl.EvalContext{
+				Variables: map[string]cty.Value{
+					"unknown": cty.UnknownVal(cty.Bool),
+					"ir": cty.UnknownVal(cty.Number).Refine().
+						NumberRangeLowerBound(cty.NumberIntVal(1), false).
+						NumberRangeUpperBound(cty.NumberIntVal(3), false).NewValue(),
+					"jr": cty.UnknownVal(cty.Number).Refine().
+						NumberRangeLowerBound(cty.NumberIntVal(2), true).
+						NumberRangeUpperBound(cty.NumberIntVal(4), true).NewValue(),
+				},
+			},
+			cty.UnknownVal(cty.Number).Refine().
+				NumberRangeLowerBound(cty.NumberIntVal(1), false).
+				NumberRangeUpperBound(cty.NumberIntVal(4), true).NewValue(),
+			0,
+		},
+		{
+			`unknown ? a : b`,
+			&hcl.EvalContext{
+				Variables: map[string]cty.Value{
+					"unknown": cty.UnknownVal(cty.Bool),
+					"a":       cty.UnknownVal(cty.Bool).RefineNotNull(),
+					"b":       cty.UnknownVal(cty.Bool).RefineNotNull(),
+				},
+			},
+			cty.UnknownVal(cty.Bool).RefineNotNull(),
+			0,
+		},
+		{
+			`unknown ? al : bl`,
+			&hcl.EvalContext{
+				Variables: map[string]cty.Value{
+					"unknown": cty.UnknownVal(cty.Bool),
+					"al":      cty.ListValEmpty(cty.String),
+					"bl":      cty.ListValEmpty(cty.String),
+				},
+			},
+			cty.ListValEmpty(cty.String), // deduced through refinements
+			0,
+		},
+		{
+			`unknown ? am : bm`,
+			&hcl.EvalContext{
+				Variables: map[string]cty.Value{
+					"unknown": cty.UnknownVal(cty.Bool),
+					"am":      cty.MapValEmpty(cty.String),
+					"bm":      cty.MapValEmpty(cty.String).Mark("test"),
+				},
+			},
+			cty.MapValEmpty(cty.String).Mark("test"), // deduced through refinements
+			0,
+		},
+		{
+			`unknown ? ar : br`,
+			&hcl.EvalContext{
+				Variables: map[string]cty.Value{
+					"unknown": cty.UnknownVal(cty.Bool),
+					"ar": cty.UnknownVal(cty.Set(cty.String)).Refine().
+						CollectionLengthLowerBound(1).CollectionLengthUpperBound(3).NewValue(),
+					"br": cty.UnknownVal(cty.Set(cty.String)).Refine().
+						CollectionLengthLowerBound(2).CollectionLengthUpperBound(4).NewValue(),
+				},
+			},
+			cty.UnknownVal(cty.Set(cty.String)).Refine().CollectionLengthLowerBound(1).CollectionLengthUpperBound(4).NewValue(), // deduced through refinements
+			0,
+		},
+		{
+			`unknown ? arn : brn`,
+			&hcl.EvalContext{
+				Variables: map[string]cty.Value{
+					"unknown": cty.UnknownVal(cty.Bool),
+					"arn": cty.UnknownVal(cty.Set(cty.String)).Refine().NotNull().
+						CollectionLengthLowerBound(1).CollectionLengthUpperBound(2).NewValue(),
+					"brn": cty.UnknownVal(cty.Set(cty.String)).Refine().NotNull().
+						CollectionLengthLowerBound(3).CollectionLengthUpperBound(4).NewValue(),
+				},
+			},
+			cty.UnknownVal(cty.Set(cty.String)).Refine().NotNull().CollectionLengthLowerBound(1).CollectionLengthUpperBound(4).NewValue(), // deduced through refinements
+			0,
+		},
+		{
+			`unknown ? amr : bmr`,
+			&hcl.EvalContext{
+				Variables: map[string]cty.Value{
+					"unknown": cty.UnknownVal(cty.Bool),
+					"amr": cty.UnknownVal(cty.Set(cty.String)).Mark("test").Refine().
+						CollectionLengthLowerBound(1).CollectionLengthUpperBound(2).NewValue(),
+					"bmr": cty.UnknownVal(cty.Set(cty.String)).Mark("test").Refine().
+						CollectionLengthLowerBound(3).CollectionLengthUpperBound(4).NewValue(),
+				},
+			},
+			cty.UnknownVal(cty.Set(cty.String)).Refine().CollectionLengthLowerBound(1).CollectionLengthUpperBound(4).NewValue().Mark("test"), // deduced through refinements
+			0,
+		},
+		{
+			`unknown ? a : b`,
+			&hcl.EvalContext{
+				Variables: map[string]cty.Value{
+					"unknown": cty.UnknownVal(cty.Bool),
+					"a":       cty.ListValEmpty(cty.String),
+					"b":       cty.ListVal([]cty.Value{cty.UnknownVal(cty.String)}),
+				},
+			},
+			cty.UnknownVal(cty.List(cty.String)).Refine().
+				NotNull().
+				CollectionLengthUpperBound(1).
+				NewValue(),
+			0,
+		},
+		{
+			`unknown ? a : b`,
+			&hcl.EvalContext{
+				Variables: map[string]cty.Value{
+					"unknown": cty.UnknownVal(cty.Bool),
+					"a":       cty.ListVal([]cty.Value{cty.StringVal("hello")}),
+					"b":       cty.ListVal([]cty.Value{cty.UnknownVal(cty.String)}),
+				},
+			},
+			cty.ListVal([]cty.Value{cty.UnknownVal(cty.String)}), // deduced through refinements
+			0,
+		},
 		{ // marked conditional
 			`var.foo ? 1 : 0`,
 			&hcl.EvalContext{
@@ -1833,6 +2166,28 @@ EOT
 				},
 			},
 			cty.NumberIntVal(1),
+			0,
+		},
+		{ // auto-converts collection types
+			`true ? listOf1Tuple : listOf0Tuple`,
+			&hcl.EvalContext{
+				Variables: map[string]cty.Value{
+					"listOf1Tuple": cty.ListVal([]cty.Value{cty.TupleVal([]cty.Value{cty.True})}),
+					"listOf0Tuple": cty.ListVal([]cty.Value{cty.EmptyTupleVal}),
+				},
+			},
+			cty.ListVal([]cty.Value{cty.ListVal([]cty.Value{cty.True})}),
+			0,
+		},
+		{
+			`true ? setOf1Tuple : setOf0Tuple`,
+			&hcl.EvalContext{
+				Variables: map[string]cty.Value{
+					"setOf1Tuple": cty.SetVal([]cty.Value{cty.TupleVal([]cty.Value{cty.True})}),
+					"setOf0Tuple": cty.SetVal([]cty.Value{cty.EmptyTupleVal}),
+				},
+			},
+			cty.SetVal([]cty.Value{cty.ListVal([]cty.Value{cty.True})}),
 			0,
 		},
 		{ // marked argument expansion
@@ -1852,13 +2207,29 @@ EOT
 			cty.NumberIntVal(1).Mark("sensitive"),
 			0,
 		},
+		{
+			`test ? sensitiveString : ""`,
+			&hcl.EvalContext{
+				Functions: map[string]function.Function{},
+				Variables: map[string]cty.Value{
+					"test":            cty.UnknownVal(cty.Bool),
+					"sensitiveString": cty.StringVal("test").Mark("sensitive"),
+				},
+			},
+			cty.UnknownVal(cty.String).RefineNotNull().Mark("sensitive"),
+			0,
+		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.input, func(t *testing.T) {
 			expr, parseDiags := ParseExpression([]byte(test.input), "", hcl.Pos{Line: 1, Column: 1, Byte: 0})
+			var got cty.Value
+			var valDiags hcl.Diagnostics
 
-			got, valDiags := expr.Value(test.ctx)
+			if expr != nil {
+				got, valDiags = expr.Value(test.ctx)
+			}
 
 			diagCount := len(parseDiags) + len(valDiags)
 
@@ -1878,6 +2249,131 @@ EOT
 		})
 	}
 
+}
+
+func TestExpressionErrorMessages(t *testing.T) {
+	tests := []struct {
+		input       string
+		ctx         *hcl.EvalContext
+		wantSummary string
+		wantDetail  string
+	}{
+		// Error messages describing inconsistent result types for conditional expressions.
+		{
+			"true ? 1 : true",
+			nil,
+			"Inconsistent conditional result types",
+			"The true and false result expressions must have consistent types. The 'true' value is number, but the 'false' value is bool.",
+		},
+		{
+			"true ? [1] : [true]",
+			nil,
+			"Inconsistent conditional result types",
+			"The true and false result expressions must have consistent types. Type mismatch for tuple element 0: The 'true' value is number, but the 'false' value is bool.",
+		},
+		{
+			"true ? [1] : [1, true]",
+			nil,
+			"Inconsistent conditional result types",
+			"The true and false result expressions must have consistent types. The 'true' tuple has length 1, but the 'false' tuple has length 2.",
+		},
+		{
+			"true ? { a = 1 } : { a = true }",
+			nil,
+			"Inconsistent conditional result types",
+			"The true and false result expressions must have consistent types. Type mismatch for object attribute \"a\": The 'true' value is number, but the 'false' value is bool.",
+		},
+		{
+			"true ? { a = true, b = 1 } : { a = true }",
+			nil,
+			"Inconsistent conditional result types",
+			"The true and false result expressions must have consistent types. The 'true' value includes object attribute \"b\", which is absent in the 'false' value.",
+		},
+		{
+			"true ? { a = true } : { a = true, b = 1 }",
+			nil,
+			"Inconsistent conditional result types",
+			"The true and false result expressions must have consistent types. The 'false' value includes object attribute \"b\", which is absent in the 'true' value.",
+		},
+		{
+			// Failing cases for automatic collection conversions. HCL and cty
+			// will attempt to unify tuples into lists. We have to make sure
+			// the tuple inner types have no common base type, so we mix and
+			// match booleans and numbers and validate the error messages.
+			"true ? listOf2Tuple : listOf1Tuple",
+			&hcl.EvalContext{
+				Variables: map[string]cty.Value{
+					"listOf2Tuple": cty.ListVal([]cty.Value{cty.TupleVal([]cty.Value{cty.True, cty.Zero})}),
+					"listOf1Tuple": cty.ListVal([]cty.Value{cty.TupleVal([]cty.Value{cty.True})}),
+				},
+			},
+			"Inconsistent conditional result types",
+			"The true and false result expressions must have consistent types. Mismatched list element types: The 'true' tuple has length 2, but the 'false' tuple has length 1.",
+		},
+		{
+			"true ? setOf2Tuple : setOf1Tuple",
+			&hcl.EvalContext{
+				Variables: map[string]cty.Value{
+					"setOf2Tuple": cty.SetVal([]cty.Value{cty.TupleVal([]cty.Value{cty.True, cty.Zero})}),
+					"setOf1Tuple": cty.SetVal([]cty.Value{cty.TupleVal([]cty.Value{cty.True})}),
+				},
+			},
+			"Inconsistent conditional result types",
+			"The true and false result expressions must have consistent types. Mismatched set element types: The 'true' tuple has length 2, but the 'false' tuple has length 1.",
+		},
+		{
+			"true ? mapOf1Tuple : mapOf2Tuple",
+			&hcl.EvalContext{
+				Variables: map[string]cty.Value{
+					"mapOf1Tuple": cty.MapVal(map[string]cty.Value{"a": cty.TupleVal([]cty.Value{cty.True})}),
+					"mapOf2Tuple": cty.MapVal(map[string]cty.Value{"a": cty.TupleVal([]cty.Value{cty.True, cty.Zero})}),
+				},
+			},
+			"Inconsistent conditional result types",
+			"The true and false result expressions must have consistent types. Mismatched map element types: The 'true' tuple has length 1, but the 'false' tuple has length 2.",
+		},
+		{
+			"true ? listOfListOf2Tuple : listOfListOf1Tuple",
+			&hcl.EvalContext{
+				Variables: map[string]cty.Value{
+					"listOfListOf2Tuple": cty.ListVal([]cty.Value{cty.ListVal([]cty.Value{cty.TupleVal([]cty.Value{cty.True, cty.Zero})})}),
+					"listOfListOf1Tuple": cty.ListVal([]cty.Value{cty.ListVal([]cty.Value{cty.TupleVal([]cty.Value{cty.True})})}),
+				},
+			},
+			"Inconsistent conditional result types",
+			// This is our totally non-specific last-resort of an error message,
+			// for situations that are too complex for any of our rules to
+			// describe coherently.
+			"The true and false result expressions must have consistent types. At least one deeply-nested attribute or element is not compatible across both the 'true' and the 'false' value.",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.input, func(t *testing.T) {
+			var diags hcl.Diagnostics
+			expr, parseDiags := ParseExpression([]byte(test.input), "", hcl.Pos{Line: 1, Column: 1, Byte: 0})
+			diags = append(diags, parseDiags...)
+			_, valDiags := expr.Value(test.ctx)
+			diags = append(diags, valDiags...)
+
+			if !diags.HasErrors() {
+				t.Fatalf("unexpected success\nwant error:\n%s; %s", test.wantSummary, test.wantDetail)
+			}
+
+			for _, diag := range diags {
+				if diag.Severity != hcl.DiagError {
+					continue
+				}
+				if diag.Summary == test.wantSummary && diag.Detail == test.wantDetail {
+					// Success! We'll return early to conclude this test case.
+					return
+				}
+			}
+			// If we fall out here then we didn't find the diagnostic
+			// we were looking for.
+			t.Fatalf("missing expected error\ngot:\n%s\n\nwant error:\n%s; %s", diags.Error(), test.wantSummary, test.wantDetail)
+		})
+	}
 }
 
 func TestFunctionCallExprValue(t *testing.T) {
@@ -1934,7 +2430,7 @@ func TestFunctionCallExprValue(t *testing.T) {
 			&hcl.EvalContext{
 				Functions: funcs,
 			},
-			cty.UnknownVal(cty.Number),
+			cty.UnknownVal(cty.Number).Refine().NotNull().NumberRangeLowerBound(cty.NumberIntVal(0), true).NewValue(),
 			0,
 		},
 		"valid call with unknown arg needing conversion": {
@@ -1949,7 +2445,7 @@ func TestFunctionCallExprValue(t *testing.T) {
 			&hcl.EvalContext{
 				Functions: funcs,
 			},
-			cty.UnknownVal(cty.Number),
+			cty.UnknownVal(cty.Number).Refine().NotNull().NumberRangeLowerBound(cty.NumberIntVal(0), true).NewValue(),
 			0,
 		},
 		"valid call with dynamic arg": {
@@ -1964,7 +2460,7 @@ func TestFunctionCallExprValue(t *testing.T) {
 			&hcl.EvalContext{
 				Functions: funcs,
 			},
-			cty.UnknownVal(cty.Number),
+			cty.UnknownVal(cty.Number).Refine().NotNull().NumberRangeLowerBound(cty.NumberIntVal(0), true).NewValue(),
 			0,
 		},
 		"invalid arg type": {
@@ -2108,5 +2604,79 @@ func TestStaticExpressionList(t *testing.T) {
 	}
 	if !first.Val.RawEquals(cty.Zero) {
 		t.Fatalf("wrong first value %#v; want cty.Zero", first.Val)
+	}
+}
+
+// Check that function call w/ incomplete argument still reports correct range
+func TestParseExpression_incompleteFunctionCall(t *testing.T) {
+	tests := []struct {
+		cfg           string
+		expectedRange hcl.Range
+	}{
+		{
+			`object({ foo = })`,
+			hcl.Range{
+				Filename: "test.hcl",
+				Start:    hcl.InitialPos,
+				End:      hcl.Pos{Line: 1, Column: 18, Byte: 17},
+			},
+		},
+		{
+			`object({
+  foo =
+})`,
+			hcl.Range{
+				Filename: "test.hcl",
+				Start:    hcl.InitialPos,
+				End:      hcl.Pos{Line: 3, Column: 3, Byte: 19},
+			},
+		},
+		{
+			`object({ foo = }`,
+			hcl.Range{
+				Filename: "test.hcl",
+				Start:    hcl.InitialPos,
+				End:      hcl.Pos{Line: 0, Column: 0, Byte: 0},
+			},
+		},
+		{
+			`object({
+  foo =
+}`,
+			hcl.Range{
+				Filename: "test.hcl",
+				Start:    hcl.InitialPos,
+				End:      hcl.Pos{Line: 0, Column: 0, Byte: 0},
+			},
+		},
+		{
+			`object({
+  foo =
+`,
+			hcl.Range{
+				Filename: "test.hcl",
+				Start:    hcl.InitialPos,
+				End:      hcl.Pos{Line: 0, Column: 0, Byte: 0},
+			},
+		},
+		{
+			`object({
+  foo =
+)`,
+			hcl.Range{
+				Filename: "test.hcl",
+				Start:    hcl.InitialPos,
+				End:      hcl.Pos{Line: 0, Column: 0, Byte: 0},
+			},
+		},
+	}
+
+	for i, tc := range tests {
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			expr, _ := ParseExpression([]byte(tc.cfg), "test.hcl", hcl.InitialPos)
+			if diff := cmp.Diff(tc.expectedRange, expr.Range()); diff != "" {
+				t.Fatalf("range mismatch: %s", diff)
+			}
+		})
 	}
 }

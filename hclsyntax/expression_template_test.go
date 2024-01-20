@@ -1,6 +1,10 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package hclsyntax
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/hcl/v2"
@@ -174,7 +178,7 @@ trim`,
 		{
 			`%{ of true ~} hello %{~ endif}`,
 			nil,
-			cty.UnknownVal(cty.String),
+			cty.UnknownVal(cty.String).RefineNotNull(),
 			2, // "of" is not a valid control keyword, and "endif" is therefore also unexpected
 		},
 		{
@@ -274,14 +278,45 @@ trim`,
 		{
 			`%{ endif }`,
 			nil,
-			cty.UnknownVal(cty.String),
+			cty.UnknownVal(cty.String).RefineNotNull(),
 			1, // Unexpected endif directive
 		},
 		{
 			`%{ endfor }`,
 			nil,
-			cty.UnknownVal(cty.String),
+			cty.UnknownVal(cty.String).RefineNotNull(),
 			1, // Unexpected endfor directive
+		},
+		{ // can preserve a static prefix as a refinement of an unknown result
+			`test_${unknown}`,
+			&hcl.EvalContext{
+				Variables: map[string]cty.Value{
+					"unknown": cty.UnknownVal(cty.String),
+				},
+			},
+			cty.UnknownVal(cty.String).Refine().NotNull().StringPrefixFull("test_").NewValue(),
+			0,
+		},
+		{ // can preserve a dynamic known prefix as a refinement of an unknown result
+			`test_${known}_${unknown}`,
+			&hcl.EvalContext{
+				Variables: map[string]cty.Value{
+					"known":   cty.StringVal("known"),
+					"unknown": cty.UnknownVal(cty.String),
+				},
+			},
+			cty.UnknownVal(cty.String).Refine().NotNull().StringPrefixFull("test_known_").NewValue(),
+			0,
+		},
+		{ // can preserve a static prefix as a refinement, but the length is limited to 128 B
+			strings.Repeat("_", 130) + `${unknown}`,
+			&hcl.EvalContext{
+				Variables: map[string]cty.Value{
+					"unknown": cty.UnknownVal(cty.String),
+				},
+			},
+			cty.UnknownVal(cty.String).Refine().NotNull().StringPrefixFull(strings.Repeat("_", 128)).NewValue(),
+			0,
 		},
 		{ // marks from uninterpolated values are ignored
 			`hello%{ if false } ${target}%{ endif }`,
@@ -365,7 +400,7 @@ trim`,
 					"target": cty.UnknownVal(cty.String).Mark("sensitive"),
 				},
 			},
-			cty.UnknownVal(cty.String).Mark("sensitive"),
+			cty.UnknownVal(cty.String).Mark("sensitive").Refine().NotNull().StringPrefixFull("test_").NewValue(),
 			0,
 		},
 	}
@@ -374,7 +409,14 @@ trim`,
 		t.Run(test.input, func(t *testing.T) {
 			expr, parseDiags := ParseTemplate([]byte(test.input), "", hcl.Pos{Line: 1, Column: 1, Byte: 0})
 
-			got, valDiags := expr.Value(test.ctx)
+			// We'll skip evaluating if there were parse errors because it
+			// isn't reasonable to evaluate a syntactically-invalid template;
+			// it'll produce strange results that we don't care about.
+			got := test.want
+			var valDiags hcl.Diagnostics
+			if !parseDiags.HasErrors() {
+				got, valDiags = expr.Value(test.ctx)
+			}
 
 			diagCount := len(parseDiags) + len(valDiags)
 
@@ -394,4 +436,45 @@ trim`,
 		})
 	}
 
+}
+
+func TestTemplateExprIsStringLiteral(t *testing.T) {
+	tests := map[string]bool{
+		// A simple string value is a string literal
+		"a": true,
+
+		// Strings containing escape characters or escape sequences are
+		// tokenized into multiple string literals, but this should be
+		// corrected by the parser
+		"a$b":        true,
+		"a%%b":       true,
+		"a\nb":       true,
+		"a$${\"b\"}": true,
+
+		// Wrapped values (HIL-like) are not treated as string literals for
+		// legacy reasons
+		"${1}":     false,
+		"${\"b\"}": false,
+
+		// Even template expressions containing only literal values do not
+		// count as string literals
+		"a${1}":     false,
+		"a${\"b\"}": false,
+	}
+	for input, want := range tests {
+		t.Run(input, func(t *testing.T) {
+			expr, diags := ParseTemplate([]byte(input), "", hcl.InitialPos)
+			if len(diags) != 0 {
+				t.Fatalf("unexpected diags: %s", diags.Error())
+			}
+
+			if tmplExpr, ok := expr.(*TemplateExpr); ok {
+				got := tmplExpr.IsStringLiteral()
+
+				if got != want {
+					t.Errorf("wrong result\ngot:  %#v\nwant: %#v", got, want)
+				}
+			}
+		})
+	}
 }

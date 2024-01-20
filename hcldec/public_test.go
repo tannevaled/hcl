@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package hcldec
 
 import (
@@ -133,6 +136,20 @@ func TestDecode(t *testing.T) {
 			nil,
 			cty.NullVal(cty.Number),
 			1, // attribute "a" is required
+		},
+		{
+			``,
+			&AttrSpec{
+				Name: "a",
+				Type: cty.ObjectWithOptionalAttrs(map[string]cty.Type{
+					"attr": cty.String,
+				}, []string{"attr"}),
+			},
+			nil,
+			cty.NullVal(cty.Object(map[string]cty.Type{
+				"attr": cty.String,
+			})),
+			0,
 		},
 
 		{
@@ -324,6 +341,20 @@ b {
 			nil,
 			cty.NullVal(cty.Map(cty.String)),
 			1, // missing b block
+		},
+		{
+			``,
+			&BlockAttrsSpec{
+				TypeName: "b",
+				ElementType: cty.ObjectWithOptionalAttrs(map[string]cty.Type{
+					"attr": cty.String,
+				}, []string{"attr"}),
+			},
+			nil,
+			cty.NullVal(cty.Map(cty.Object(map[string]cty.Type{
+				"attr": cty.String,
+			}))),
+			0,
 		},
 		{
 			`
